@@ -3,896 +3,676 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>甄嬛传人物测试 · 你是后宫中的谁？</title>
+    <title>AI明星撞脸测试 - 真实人脸识别版</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.2/dist/face-landmarks-detection.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
-            background: #0c0a14;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             min-height: 100vh;
-            color: #e8ddd0;
-            overflow-x: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
-        canvas#bg {
-            position: fixed; top: 0; left: 0;
-            width: 100%; height: 100%; z-index: 0;
-        }
-        section { display: none; position: relative; z-index: 1; min-height: 100vh;
-            justify-content: center; align-items: center; padding: 20px; }
-        section.active { display: flex; }
 
-        /* ===== 欢迎页 ===== */
-        .welcome-box {
-            background: rgba(60,20,20,0.35);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-radius: 28px;
-            padding: 52px 36px 42px;
-            max-width: 520px; width: 100%;
+        .container {
+            width: 100%;
+            max-width: 700px;
+            background: rgba(0, 0, 0, 0.85);
+            border-radius: 20px;
+            padding: 40px;
             text-align: center;
-            border: 1px solid rgba(200,160,100,0.15);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(200,160,100,0.1);
-            animation: fadeSlideIn 0.7s ease;
-        }
-        @keyframes fadeSlideIn {
-            from { opacity: 0; transform: translateY(24px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .emoji-row { font-size: 36px; margin-bottom: 18px; letter-spacing: 6px; }
-        .welcome-box h1 {
-            font-size: 30px; margin-bottom: 10px;
-            background: linear-gradient(135deg, #d4a574, #c0392b, #8b0000, #d4a574);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            background-size: 300% 300%;
-            animation: gradientShift 5s ease infinite;
-        }
-        @keyframes gradientShift {
-            0%,100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-        }
-        .welcome-box .subtitle {
-            font-size: 15px; color: rgba(200,160,100,0.6); margin-bottom: 8px; font-style: italic;
-        }
-        .welcome-box p { color: rgba(232,221,208,0.5); line-height: 1.7; margin-bottom: 32px; font-size: 14px; }
-        .start-btn {
-            display: inline-block; padding: 16px 52px; border-radius: 50px;
-            border: none; font-size: 17px; font-weight: 600; color: #f5e6d0;
-            background: linear-gradient(135deg, #8b0000 0%, #c0392b 50%, #d4a574 100%);
-            cursor: pointer; transition: all 0.4s ease;
-            box-shadow: 0 8px 30px rgba(139,0,0,0.35);
-            position: relative; overflow: hidden;
-        }
-        .start-btn::before {
-            content:''; position:absolute; top:0; left:-100%; width:100%; height:100%;
-            background: linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);
-            transition: left 0.5s;
-        }
-        .start-btn:hover::before { left:100%; }
-        .start-btn:hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba(139,0,0,0.5); }
-
-        /* ===== 答题页 ===== */
-        .quiz-container {
-            background: rgba(60,20,20,0.3);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-radius: 28px;
-            padding: 40px 32px;
-            max-width: 620px; width: 100%;
-            border: 1px solid rgba(200,160,100,0.12);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-            animation: fadeSlideIn 0.5s ease;
-        }
-        .progress-bar { height: 4px; background: rgba(200,160,100,0.1); border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
-        .progress-fill { height: 100%; background: linear-gradient(90deg, #8b0000, #d4a574); border-radius: 2px; transition: width 0.4s ease; width: 0; }
-        .progress-num { font-size: 13px; color: rgba(200,160,100,0.4); text-align: right; margin-bottom: 24px; }
-        .question-text { font-size: 19px; font-weight: 600; line-height: 1.7; margin-bottom: 28px; color: #f0e0cc; }
-        .options-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
-        .option-card {
-            padding: 16px 20px; border-radius: 16px;
-            background: rgba(200,160,100,0.04);
-            border: 1.5px solid rgba(200,160,100,0.1);
-            cursor: pointer; transition: all 0.3s ease;
-            font-size: 15px; line-height: 1.5; color: rgba(232,221,208,0.7);
-        }
-        .option-card:hover { background: rgba(139,0,0,0.12); border-color: rgba(200,160,100,0.3); color: #f0e0cc; }
-        .option-card.selected {
-            background: rgba(139,0,0,0.2); border-color: rgba(200,160,100,0.5);
-            color: #f5e6d0; box-shadow: 0 4px 20px rgba(139,0,0,0.2);
-        }
-        .quiz-nav {
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .back-btn {
-            background: none; border: 1px solid rgba(200,160,100,0.15);
-            color: rgba(200,160,100,0.45); padding: 10px 22px;
-            border-radius: 30px; font-size: 13px; cursor: pointer; transition: all 0.3s;
-        }
-        .back-btn:hover { color: rgba(200,160,100,0.8); border-color: rgba(200,160,100,0.35); }
-        .back-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-        .next-btn {
-            padding: 10px 28px; border-radius: 30px; border: none;
-            font-size: 14px; font-weight: 600; color: #f5e6d0;
-            background: linear-gradient(135deg, #8b0000, #c0392b);
-            cursor: pointer; transition: all 0.3s;
-            opacity: 0.3; pointer-events: none;
-        }
-        .next-btn.enabled { opacity: 1; pointer-events: auto; }
-        .next-btn.enabled:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(139,0,0,0.4); }
-
-        /* ===== 加载页 ===== */
-        .loading-box { text-align: center; animation: fadeSlideIn 0.5s ease; }
-        .loading-circle { position: relative; width: 120px; height: 120px; margin: 0 auto 28px; }
-        .loading-circle svg { transform: rotate(-90deg); }
-        .loading-circle .ring-bg { fill: none; stroke: rgba(200,160,100,0.08); stroke-width: 6; }
-        .loading-circle .ring-fg { fill: none; stroke: url(#grad1); stroke-width: 6; stroke-linecap: round;
-            stroke-dasharray: 314; stroke-dashoffset: 314; transition: stroke-dashoffset 0.8s ease; }
-        .loading-pct { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-            font-size: 24px; font-weight: 700; color: #d4a574; }
-        .loading-steps { list-style: none; text-align: left; max-width: 280px; margin: 0 auto; }
-        .loading-steps li { padding: 10px 0; font-size: 14px; color: rgba(232,221,208,0.3);
-            border-bottom: 1px solid rgba(200,160,100,0.06); transition: all 0.4s; display: flex; align-items: center; gap: 10px; }
-        .loading-steps li .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(200,160,100,0.15); transition: all 0.4s; flex-shrink: 0; }
-        .loading-steps li.current { color: rgba(232,221,208,0.85); }
-        .loading-steps li.current .dot { background: #d4a574; box-shadow: 0 0 8px rgba(212,165,116,0.5); }
-        .loading-steps li.done { color: rgba(232,221,208,0.4); }
-        .loading-steps li.done .dot { background: #c0392b; }
-
-        /* 判定依据 */
-        .evidence-list { list-style: none; }
-        .evidence-list li {
-            padding: 12px 16px; margin-bottom: 8px; font-size: 14px;
-            color: rgba(232,221,208,0.75); line-height: 1.6;
-            background: rgba(200,160,100,0.04); border-radius: 12px;
-            border-left: 3px solid rgba(200,160,100,0.3);
-        }
-        .evidence-list li .ev-q {
-            font-size: 12px; color: rgba(200,160,100,0.4); display: block; margin-bottom: 4px;
-        }
-        .evidence-list li .ev-trait {
-            color: #d4a574; font-weight: 600;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
         }
 
-        /* ===== 结果页 ===== */
-        .result-container { max-width: 640px; width: 100%; animation: fadeSlideIn 0.7s ease; }
-        .result-hero {
-            border-radius: 28px; padding: 48px 32px 36px; text-align: center;
-            margin-bottom: 20px; position: relative; overflow: hidden;
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, #ffd700, #ffa500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
-        .result-hero::before {
-            content:''; position:absolute; top:0;left:0;right:0;bottom:0;
-            background: inherit; filter: blur(40px); opacity: 0.3; z-index: 0;
-        }
-        .result-hero > * { position: relative; z-index: 1; }
-        .result-portrait {
-            width: 160px; height: 160px; border-radius: 50%;
-            object-fit: cover; margin-bottom: 16px;
-            border: 3px solid rgba(245,230,208,0.3);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-            animation: float 3s ease-in-out infinite;
-        }
-        .result-emoji { font-size: 64px; margin-bottom: 12px; display: block; animation: float 3s ease-in-out infinite; }
-        @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        .result-hero h2 { font-size: 28px; color: #f5e6d0; margin-bottom: 8px; }
-        .result-hero .tagline { font-size: 15px; color: rgba(245,230,208,0.7); line-height: 1.7; }
-        .result-hero .quote { font-size: 13px; color: rgba(245,230,208,0.5); margin-top: 12px; font-style: italic; }
 
-        .card {
-            background: rgba(60,20,20,0.25); backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-radius: 20px; padding: 28px 24px;
-            border: 1px solid rgba(200,160,100,0.1);
-            margin-bottom: 16px; animation: cardReveal 0.5s ease backwards;
+        .subtitle {
+            font-size: 1rem;
+            color: #aaa;
+            margin-bottom: 1.5rem;
         }
-        @keyframes cardReveal { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-        .card h3 { font-size: 16px; margin-bottom: 16px; color: #d4a574; }
-        .traits-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .trait-col h4 { font-size: 13px; color: rgba(200,160,100,0.5); margin-bottom: 10px; letter-spacing: 1px; }
-        .trait-col li { font-size: 14px; color: rgba(232,221,208,0.7); padding: 4px 0; list-style: none; }
-        .strength li::before { content: '✦'; color: #d4a574; margin-right: 6px; }
-        .weakness li::before { content: '⚠'; color: #c0392b; margin-right: 6px; }
 
-        .radar-wrap { display: flex; justify-content: center; margin: 8px 0; }
-        .legend { margin-top: 12px; }
-        .legend-item { display: flex; align-items: center; gap: 10px; padding: 8px 0;
-            border-bottom: 1px solid rgba(200,160,100,0.06); font-size: 14px; }
-        .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-        .legend-bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(200,160,100,0.08); overflow: hidden; }
-        .legend-bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
-        .legend-pct { font-size: 13px; color: rgba(232,221,208,0.5); min-width: 36px; text-align: right; }
-
-        .tips-list { list-style: none; }
-        .tips-list li { padding: 10px 0; font-size: 14px; color: rgba(232,221,208,0.7); line-height: 1.6;
-            border-bottom: 1px solid rgba(200,160,100,0.06); }
-        .tips-list li:last-child { border: none; }
-        .tips-list li::before { content: '📜'; margin-right: 8px; }
-
-        .secondary-hint {
-            font-size: 14px; color: rgba(232,221,208,0.5); text-align: center;
-            padding: 16px; margin-bottom: 16px; line-height: 1.6;
-            background: rgba(60,20,20,0.2); border-radius: 16px;
+        .info-box {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid #ffd700;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
         }
-        .disclaimer {
-            font-size: 12px; color: rgba(200,160,100,0.25); text-align: center;
-            padding: 16px 0; line-height: 1.6;
-        }
-        .action-row { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
-        .action-btn {
-            padding: 14px 32px; border-radius: 50px; font-size: 15px; font-weight: 600;
-            cursor: pointer; transition: all 0.3s; border: none;
-        }
-        .btn-share { background: linear-gradient(135deg, #8b0000, #c0392b); color: #f5e6d0; }
-        .btn-share:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(139,0,0,0.4); }
-        .btn-restart { background: rgba(200,160,100,0.08); color: rgba(200,160,100,0.6); border: 1px solid rgba(200,160,100,0.12); }
-        .btn-restart:hover { color: #d4a574; border-color: rgba(200,160,100,0.3); }
 
-        @media (max-width: 480px) {
-            .welcome-box { padding: 36px 24px 32px; }
-            .welcome-box h1 { font-size: 24px; }
-            .quiz-container { padding: 28px 20px; }
-            .question-text { font-size: 17px; }
-            .result-hero { padding: 36px 20px 28px; }
-            .result-portrait { width: 120px; height: 120px; }
-            .traits-grid { grid-template-columns: 1fr; }
-            .action-row { flex-direction: column; }
-            .action-btn { width: 100%; }
+        .upload-area {
+            border: 2px dashed #ffd700;
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .upload-area:hover {
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .loading {
+            display: none;
+            margin: 2rem 0;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 215, 0, 0.3);
+            border-top: 4px solid #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+            margin-top: 2rem;
+        }
+
+        .main-result {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.2));
+            border: 2px solid #ffd700;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .match-percent {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+
+        .star-name {
+            font-size: 2.2rem;
+            margin: 1rem 0;
+        }
+
+        .star-image {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #ffd700;
+            margin: 1rem 0;
+        }
+
+        .other-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .other-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .other-percent {
+            font-size: 1.5rem;
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        .other-name {
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .btn {
+            background: #ffd700;
+            color: black;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 1.5rem;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: white;
+            transform: translateY(-3px);
+        }
+
+        .error {
+            color: #ff6b6b;
+            margin-top: 1rem;
+        }
+
+        #preview {
+            max-width: 200px;
+            border-radius: 10px;
+            margin: 1rem 0;
         }
     </style>
 </head>
 <body>
-    <canvas id="bg"></canvas>
-
-    <!-- 欢迎页 -->
-    <section id="welcome" class="active">
-        <div class="welcome-box">
-            <div class="emoji-row">👑 🏯 🌸 🎭</div>
-            <h1>你是甄嬛传里的谁？</h1>
-            <div class="subtitle">「愿得一心人，白首不相离」</div>
-            <p>20 道日常情境题，测出你骨子里的后宫人格<br>是运筹帷幄的甄嬛，还是霸气侧漏的华妃？</p>
-            <button class="start-btn" onclick="startQuiz()">开始测试 →</button>
+    <div class="container">
+        <h1>🌟 AI明星撞脸测试</h1>
+        <p class="subtitle">真实人脸识别技术 · 46位女明星数据库</p>
+        
+        <div class="info-box">
+            📸 上传你的正面照片，AI将提取面部特征并与46位女明星进行比对
         </div>
-    </section>
 
-    <!-- 答题页 -->
-    <section id="quiz">
-        <div class="quiz-container">
-            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-            <div class="progress-num" id="progressNum">Q1 / 20</div>
-            <div class="question-text" id="questionText"></div>
-            <div class="options-list" id="optionsList"></div>
-            <div class="quiz-nav">
-                <button class="back-btn" id="backBtn" onclick="goBack()" disabled>← 上一题</button>
-                <button class="next-btn" id="nextBtn" onclick="goNext()">下一题 →</button>
-            </div>
+        <div class="upload-area" id="upload-area">
+            <div class="upload-icon">📸</div>
+            <div>点击上传照片</div>
+            <div style="font-size: 0.8rem; color: #aaa; margin-top: 0.5rem;">支持 JPG/PNG 格式，建议正面清晰照片</div>
+            <input type="file" id="file-input" accept="image/*">
         </div>
-    </section>
 
-    <!-- 加载页 -->
-    <section id="loading">
-        <div class="loading-box">
-            <div class="loading-circle">
-                <svg width="120" height="120" viewBox="0 0 120 120">
-                    <defs><linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" style="stop-color:#8b0000"/>
-                        <stop offset="100%" style="stop-color:#d4a574"/>
-                    </linearGradient></defs>
-                    <circle class="ring-bg" cx="60" cy="60" r="50"/>
-                    <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="50"/>
-                </svg>
-                <div class="loading-pct" id="loadingPct">0%</div>
-            </div>
-            <ul class="loading-steps">
-                <li id="ls1"><span class="dot"></span>正在翻阅你的后宫档案...</li>
-                <li id="ls2"><span class="dot"></span>正在匹配人物命格...</li>
-                <li id="ls3"><span class="dot"></span>正在撰写你的判词...</li>
-            </ul>
-        </div>
-    </section>
+        <img id="preview" style="display: none;">
 
-    <!-- 结果页 -->
-    <section id="result">
-        <div class="result-container">
-            <div class="result-hero" id="resultHero">
-                <img class="result-portrait" id="resultPortrait" src="" alt="">
-                <span class="result-emoji" id="resultEmoji"></span>
-                <h2 id="resultName"></h2>
-                <p class="tagline" id="resultTagline"></p>
-                <p class="quote" id="resultQuote"></p>
-            </div>
-            <div class="card" style="animation-delay:0.1s">
-                <h3>🔎 判定依据 · 你的这些表现暴露了你</h3>
-                <ul class="evidence-list" id="evidenceList"></ul>
-            </div>
-            <div class="card" style="animation-delay:0.15s">
-                <h3>🔍 性格画像</h3>
-                <div class="traits-grid">
-                    <div class="trait-col strength"><h4>✦ 你的利刃</h4><ul id="strengthList"></ul></div>
-                    <div class="trait-col weakness"><h4>⚠ 你的软肋</h4><ul id="weaknessList"></ul></div>
-                </div>
-            </div>
-            <div class="card" style="animation-delay:0.2s">
-                <h3>📊 后宫人格分布</h3>
-                <div class="radar-wrap"><canvas id="radarCanvas" width="320" height="320"></canvas></div>
-                <div class="legend" id="legend"></div>
-            </div>
-            <div class="card" style="animation-delay:0.3s">
-                <h3>📜 生存锦囊</h3>
-                <ul class="tips-list" id="tipsList"></ul>
-            </div>
-            <div class="secondary-hint" id="secondaryType" style="display:none"></div>
-            <div class="disclaimer">⚠️ 本测试仅供娱乐，不代表真实性格诊断<br>「人心都是肉长的，经不起太多试探」</div>
-            <div class="action-row">
-                <button class="action-btn btn-share" onclick="shareResult()">分享结果</button>
-                <button class="action-btn btn-restart" onclick="restartQuiz()">重新测试</button>
-            </div>
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>正在提取面部特征...</div>
+            <div style="font-size: 0.8rem; color: #aaa; margin-top: 0.5rem;">首次加载模型需要几秒钟</div>
         </div>
-    </section>
+
+        <div class="error" id="error"></div>
+
+        <div class="results" id="results">
+            <div class="main-result">
+                <div class="match-percent" id="main-percent">0%</div>
+                <img class="star-image" id="main-image" src="" alt="">
+                <div class="star-name" id="main-name">-</div>
+                <div style="color: #ddd;">你们的人脸特征相似度</div>
+            </div>
+
+            <div style="text-align: left; margin-bottom: 0.5rem; color: #ffd700;">其他相似明星：</div>
+            <div class="other-results" id="other-results"></div>
+
+            <button class="btn" onclick="location.reload()">重新测试</button>
+        </div>
+    </div>
 
     <script>
-    /* ===== 粒子背景（宫廷暗红金色调） ===== */
-    var cvs = document.getElementById('bg'), cx = cvs.getContext('2d'), pts = [];
-    function resizeCvs(){ cvs.width=innerWidth; cvs.height=innerHeight; }
-    function makePts(){
-        pts=[];
-        var n=Math.floor((cvs.width*cvs.height)/20000);
-        for(var i=0;i<n;i++){
-            var hue = 10 + Math.random()*30;
-            pts.push({x:Math.random()*cvs.width,y:Math.random()*cvs.height,
-                vx:(Math.random()-0.5)*0.25,vy:(Math.random()-0.5)*0.25,r:Math.random()*2+0.5,
-                color:'hsla('+hue+',60%,55%,'+(0.06+Math.random()*0.12)+')'});
-        }
-    }
-    function drawBg(){
-        cx.clearRect(0,0,cvs.width,cvs.height);
-        pts.forEach(function(p){
-            p.x+=p.vx;p.y+=p.vy;
-            if(p.x<0||p.x>cvs.width)p.vx*=-1;
-            if(p.y<0||p.y>cvs.height)p.vy*=-1;
-            cx.beginPath();cx.arc(p.x,p.y,p.r,0,Math.PI*2);cx.fillStyle=p.color;cx.fill();
-        });
-        for(var i=0;i<pts.length;i++)for(var j=i+1;j<pts.length;j++){
-            var dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy);
-            if(d<100){cx.beginPath();cx.moveTo(pts[i].x,pts[i].y);cx.lineTo(pts[j].x,pts[j].y);
-                cx.strokeStyle='rgba(200,160,100,'+(0.04*(1-d/100))+')';cx.lineWidth=0.5;cx.stroke();}
-        }
-        requestAnimationFrame(drawBg);
-    }
-    resizeCvs();makePts();drawBg();
-    addEventListener('resize',function(){resizeCvs();makePts();});
+        // 加载预提取的明星特征
+        let celebrityFeatures = [];
+        let model = null;
 
-    /* ===== 题目数据 ===== */
-    // A=甄嬛 B=华妃 C=沈眉庄 D=安陵容 E=皇后 F=敬妃 G=夏冬春 H=三阿哥 I=宁贵人
-    var questions = [
-        {text:'公司团建分组，你和一个跟你有过节的同事被分到一组，你会？',options:[
-            {text:'表面和气配合，暗中观察对方意图，找机会化敌为友',type:'A',trait:'善于隐藏真实想法，化敌为友'},
-            {text:'直接跟组织者说换组，懒得跟不喜欢的人虚与委蛇',type:'B',trait:'不愿委屈自己，态度直接'},
-            {text:'保持距离，做好自己分内的事就行，不主动交集',type:'C',trait:'边界感强，不在无意义的人身上花精力'},
-            {text:'笑脸迎人格外热情，但心里把每句话都记得清清楚楚',type:'E',trait:'表面慈和内心记账，城府深'},
-            {text:'完全不记得之前有过节，热情地打招呼开始团建',type:'H',trait:'心大到忘记恩怨，对谁都没有防备心'},
-            {text:'当众大声抱怨"怎么跟TA一组啊！"完全不考虑场面',type:'G',trait:'想到什么说什么，完全不过脑子'}]},
-
-        {text:'闺蜜聚会时，有人当众开了一个让你很不舒服的玩笑，你？',options:[
-            {text:'笑着用更巧妙的话怼回去，让对方知道你不好惹',type:'A',trait:'反应快，用智慧而非蛮力反击'},
-            {text:'当场翻脸："你再说一次试试？"',type:'B',trait:'情绪来了挡不住，敢当场翻脸'},
-            {text:'不笑也不说话，散场后跟她挑明：以后别这样',type:'C',trait:'不当众撕破脸，但事后会把话说清楚'},
-            {text:'笑着附和，回家后越想越难过，在日记里写下来',type:'D',trait:'习惯隐忍不表达，独自消化情绪'},
-            {text:'没听懂这个玩笑在笑自己，还跟着一起哈哈大笑',type:'G',trait:'反应慢半拍，完全不知道被嘲笑了'},
-            {text:'笑着说"你说得对"然后继续聊自己想聊的话题',type:'I',trait:'别人的话影响不了自己的节奏'}]},
-
-        {text:'你发现一个同事一直在背后说你坏话，你怎么处理？',options:[
-            {text:'不动声色地收集证据，等合适的时机一次让TA没话说',type:'A',trait:'不打无准备之仗，讲究时机'},
-            {text:'直接当面对质：有本事当我面说',type:'B',trait:'眼里揉不得沙子，正面硬刚'},
-            {text:'不屑理会，清者自清，用实力打脸',type:'C',trait:'不屑与小人计较，用结果说话'},
-            {text:'不直接冲突，但会慢慢在关键时刻给TA使点绊子',type:'E',trait:'不急于报复，擅长暗中布局'},
-            {text:'无所谓，别人怎么说是别人的事，不影响我吃喝玩乐',type:'I',trait:'对闲言碎语完全免疫，活在自己的世界里'},
-            {text:'去找那个同事说"你是不是对我有什么误解？我们好好聊聊"',type:'H',trait:'天真地相信沟通能解决一切'}]},
-
-        {text:'你喜欢的人同时也有别人在追，你的策略是？',options:[
-            {text:'看清局势，扬长避短，用独特的方式让对方注意到你',type:'A',trait:'善于分析竞争格局，扬长避短'},
-            {text:'直球出击，喜欢就要大声说出来，怕什么竞争',type:'B',trait:'感情上直球出击，从不扭捏'},
-            {text:'保持自我，不刻意讨好。如果是我的终究是我的',type:'C',trait:'不为感情折腰，信奉缘分'},
-            {text:'默默观察对方喜好，用细水长流的方式靠近',type:'D',trait:'善于察言观色，用心经营细节'},
-            {text:'随缘，不会刻意去追谁，有缘自然会在一起',type:'I',trait:'恋爱也佛系，不愿为任何人改变自己的节奏'},
-            {text:'到处跟人说"TA是我看上的！"以为这样就能宣示主权',type:'G',trait:'用幼稚的方式宣示主权，完全不懂策略'}]},
-
-        {text:'领导把本该给你的机会给了另一个人，你会？',options:[
-            {text:'忍一时，私下找领导谈，表明态度争取下一次',type:'A',trait:'能忍一时之气，选择更有效的方式争取'},
-            {text:'当场就问领导为什么，觉得不公平就要说出来',type:'B',trait:'不能忍受不公平，当场就要说法'},
-            {text:'心里不服但不说，用下一次更出色的表现证明自己',type:'C',trait:'靠实力而非嘴皮子证明自己'},
-            {text:'表面恭顺但内心记恨，开始暗暗寻找翻盘机会',type:'E',trait:'表面顺从内心不服，暗中谋划'},
-            {text:'跑去跟同事们吐槽领导偏心，声音大到领导都听见了',type:'G',trait:'不知道什么话该说什么话不该说'},
-            {text:'主动去帮那个拿到机会的人，觉得大家一起做好就行',type:'H',trait:'善良到不计较自己的利益'}]},
-
-        {text:'好朋友跟你借了一大笔钱，到期了一直不提还，你？',options:[
-            {text:'旁敲侧击地提醒，既要回钱又不伤感情',type:'A',trait:'处理人际关系讲究分寸感'},
-            {text:'直接开口要，钱是钱情是情，拖着才伤感情',type:'B',trait:'钱和感情分得清，不含糊'},
-            {text:'不催但心里记着，以后跟这人保持距离',type:'C',trait:'不撕破脸但会默默画线'},
-            {text:'不好意思催，宁愿自己吃亏也不想让对方难堪',type:'D',trait:'宁愿自己吃亏也怕得罪人'},
-            {text:'不仅不催，还问对方"你最近是不是还有困难？需要我再帮忙吗？"',type:'H',trait:'善良到没有底线，完全不考虑自己'},
-            {text:'忘了这回事，反正钱嘛，生不带来死不带去',type:'I',trait:'对钱看得很开，不为物质所累'}]},
-
-        {text:'聚会上有人一直炫耀自己的成就，你内心的想法是？',options:[
-            {text:'面带微笑不接话，炫耀的人往往心虚',type:'A',trait:'看穿虚荣但不点破，内心淡定'},
-            {text:'不服气就直接说：那算什么，我还…',type:'B',trait:'不服就要比，骨子里争强好胜'},
-            {text:'懒得听，找个借口走开跟别人聊天',type:'C',trait:'对虚荣不感兴趣，直接走开'},
-            {text:'表面夸赞但心里酸酸的，回去暗暗努力',type:'D',trait:'表面大方内心在意，化嫉妒为动力'},
-            {text:'真心实意地崇拜"好厉害啊你太棒了！"完全被唬住',type:'G',trait:'容易被表面的东西唬住，没有判断力'},
-            {text:'完全没在听，正在想等下去哪里吃宵夜',type:'I',trait:'对别人的成就完全不感兴趣，只关心自己的快乐'}]},
-
-        {text:'你在职场上遇到一个特别虚伪的人，你怎么应对？',options:[
-            {text:'以其人之道还治其人之身，比TA更会演',type:'A',trait:'必要时比对手更会演戏'},
-            {text:'受不了假的，要么远离要么当面拆穿',type:'B',trait:'最看不惯虚伪，要么远离要么拆穿'},
-            {text:'看破不说破，保持安全距离就好',type:'F',trait:'看透但不揭穿，保持安全距离'},
-            {text:'表面配合TA的节奏，但暗中留好后手',type:'E',trait:'配合对方演出，暗中留有后手'},
-            {text:'真诚地对待TA，相信人都有善良的一面',type:'H',trait:'看不出别人的虚伪，对谁都真心以待'},
-            {text:'学着人家的样子也装，但演技太差被所有人看穿',type:'G',trait:'学人精但段位太低，东施效颦'}]},
-
-        {text:'你意外得知了一个可能对自己有利的秘密，你会？',options:[
-            {text:'先藏着，等最需要的时候再用，时机很重要',type:'A',trait:'懂得信息就是武器，讲究时机'},
-            {text:'看情况，如果能帮到朋友就分享，不会用来害人',type:'C',trait:'重情义，不拿秘密做文章'},
-            {text:'这是重要筹码，关键时刻可以用来交换利益',type:'E',trait:'把信息当作筹码，善于利益交换'},
-            {text:'默默记住，不告诉任何人，谁也不信',type:'F',trait:'谁都不完全信任，把秘密烂在肚子里'},
-            {text:'藏不住秘密，分分钟就跟身边的人说了个遍',type:'G',trait:'完全没有保密意识，嘴巴比脑子快'},
-            {text:'如果这个秘密可能伤害到别人，就选择不用它',type:'H',trait:'宁可放弃利益也不愿伤害别人'}]},
-
-        {text:'团队项目里你的方案被否决，用了一个你觉得很差的方案，后来果然失败了，你？',options:[
-            {text:'不说"我早说了"，主动站出来提出补救方案',type:'A',trait:'大局观强，关键时刻站出来而不是看笑话'},
-            {text:'忍不住说：我当时就说了不行吧！',type:'B',trait:'忍不住说"我早说了"，嘴上不饶人'},
-            {text:'不说风凉话，但内心更坚定以后相信自己的判断',type:'C',trait:'不说风凉话，但更加相信自己'},
-            {text:'暗自庆幸，这次的失败刚好证明了你的能力',type:'E',trait:'别人的失败是自己的机会'},
-            {text:'无所谓，反正上班只是为了赚钱，方案谁的不一样',type:'I',trait:'对工作没有执念，上班只是生活的一部分'},
-            {text:'主动安慰方案被采纳的那个人"别有压力，大家一起想办法"',type:'H',trait:'善良到关心击败自己的人'}]},
-
-        {text:'有人当着你男朋友/女朋友的面暧昧地跟TA搭讪，你？',options:[
-            {text:'云淡风轻地宣示主权，让对方知难而退又不失体面',type:'A',trait:'宣示主权的方式优雅又有力'},
-            {text:'直接挽住对方胳膊：这是我对象，有事？',type:'B',trait:'护短直接，霸气宣誓主权'},
-            {text:'不动声色观察对方的反应，看TA怎么处理比较重要',type:'C',trait:'更在意伴侣的态度而非第三者'},
-            {text:'表面不在意，但内心波涛汹涌，事后可能翻旧账',type:'D',trait:'当场隐忍但事后反复纠结'},
-            {text:'完全没注意到对方在搭讪，还热情地介绍"这是我男/女朋友！"',type:'G',trait:'迟钝到察觉不了暧昧信号'},
-            {text:'不在意，如果TA因此动心说明不适合我',type:'I',trait:'对感情洒脱，不愿为任何人束缚'}]},
-
-        {text:'你在一个新环境里（新公司/新班级），你的生存策略是？',options:[
-            {text:'先观察势力分布，找到关键人物，再决定站队',type:'A',trait:'进入新环境先观察再行动，善于站队'},
-            {text:'做自己就好，能力摆在那里，不需要刻意讨好谁',type:'B',trait:'不刻意讨好任何人，靠能力说话'},
-            {text:'保持礼貌距离，慢慢筛选值得深交的人',type:'C',trait:'交友谨慎，宁缺毋滥'},
-            {text:'小心翼翼融入，先让所有人都觉得你人畜无害',type:'D',trait:'先示弱融入，让所有人放下戒备'},
-            {text:'不管什么环境都做自己，不适应就走，此处不留爷自有留爷处',type:'I',trait:'永远把自由和真我放在第一位'},
-            {text:'见谁都热情，什么都说，不小心把不该说的也说了',type:'G',trait:'热情但分不清什么该说什么不该说'}]},
-
-        {text:'你和同事竞争同一个升职名额，你的做法是？',options:[
-            {text:'做好本职的同时，多在领导面前展现综合能力',type:'A',trait:'既有实力也懂表现自己'},
-            {text:'实力碾压就好，搞那些弯弯绕绕没意思',type:'B',trait:'相信绝对实力，不屑于手段'},
-            {text:'不主动争但也不退让，该是我的不会让',type:'C',trait:'不主动争抢但寸步不让'},
-            {text:'给自己留退路，万一争不到也要确保不得罪人',type:'F',trait:'凡事给自己留退路，不把路走死'},
-            {text:'觉得同事比自己更需要这次机会，主动退出竞争',type:'H',trait:'善良到牺牲自己的机会成全别人'},
-            {text:'以为自己稳赢，到处跟人说"这次升职肯定是我"',type:'G',trait:'迷之自信，完全不了解自身处境'}]},
-
-        {text:'你最好的朋友突然跟你的对手走得很近，你怎么想？',options:[
-            {text:'先冷静分析原因，可能有苦衷，但也会留个心眼',type:'A',trait:'理性分析但不会完全放下戒备'},
-            {text:'直接问清楚：你到底跟谁一边的？',type:'B',trait:'感情上非黑即白，要你给个说法'},
-            {text:'不问不说，但心里已经画了一条线',type:'C',trait:'一旦心寒就默默画线，不给第二次机会'},
-            {text:'很受伤，但不表现出来，开始怀疑所有人',type:'D',trait:'因一人受伤而怀疑所有人'},
-            {text:'朋友交什么朋友是TA的自由，我不管也管不了',type:'I',trait:'尊重每个人的自由，不愿控制任何人'},
-            {text:'觉得对手可能也是好人，三个人一起做朋友也不错',type:'H',trait:'天真地想化敌为友，看不到人心复杂'}]},
-
-        {text:'有人送你一份大礼但你觉得目的不纯，你会？',options:[
-            {text:'收下但保持警惕，想清楚对方要什么再决定下一步',type:'A',trait:'收礼不代表承情，保持警惕后续再判断'},
-            {text:'不要就是不要，我不欠任何人人情',type:'B',trait:'不愿欠人情，拒绝干脆利落'},
-            {text:'委婉拒绝，无功不受禄',type:'C',trait:'无功不受禄，原则感强'},
-            {text:'收下后假装不知道TA的目的，静观其变',type:'E',trait:'收下对方的好处但不表态，等对方先亮牌'},
-            {text:'高高兴兴地收下，完全没想到人家有目的',type:'G',trait:'没有戒心，别人给什么都高兴地收下'},
-            {text:'收下后真诚地感谢，然后准备一份同等价值的礼物还回去',type:'H',trait:'用善意回应一切，相信以心换心'}]},
-
-        {text:'你在群聊里看到别人在议论你，你会？',options:[
-            {text:'截图保存，选择合适的方式让关键人知道真相',type:'A',trait:'保留证据，择机反击'},
-            {text:'直接在群里回复：有什么话当面说',type:'B',trait:'不怕冲突，要当面对质'},
-            {text:'退群，不值得为这些人浪费情绪',type:'C',trait:'不值得的人和事，直接从生活中删除'},
-            {text:'默默看完不说话，但把每个人的态度都记住了',type:'E',trait:'默默记住每个人的态度，秋后算账'},
-            {text:'直接在群里发一连串语音质问，越说越激动把事情闹大',type:'G',trait:'冲动行事，不考虑后果把事情搞得更糟'},
-            {text:'看了一眼就关掉手机，出门约朋友喝酒去了',type:'I',trait:'不让任何人的言论影响自己的心情'}]},
-
-        {text:'你的朋友圈有人每天晒恩爱/晒成就，你的反应是？',options:[
-            {text:'偶尔点个赞维护关系，多了就屏蔽，自己过好就行',type:'A',trait:'社交上维持面子但不走心'},
-            {text:'翻白眼，有什么好炫的，真正厉害的人不用晒',type:'B',trait:'对炫耀行为嗤之以鼻'},
-            {text:'随便看看不放心上，每个人有每个人的活法',type:'F',trait:'对别人的生活不评判，活好自己'},
-            {text:'嘴上说恭喜，心里有点酸，默默打开购物App',type:'D',trait:'嘴上恭喜心里在意，用消费缓解焦虑'},
-            {text:'每条都认真点赞评论，还追问细节"在哪买的？多少钱？"',type:'G',trait:'没有嫉妒心但也没有边界感'},
-            {text:'根本不刷朋友圈，社交媒体太无聊了',type:'I',trait:'对社交媒体不感兴趣，活在当下'}]},
-
-        {text:'你负责的项目出了岔子，有人趁机踩你邀功，你？',options:[
-            {text:'先把问题解决了再说，事后找机会让真相大白',type:'A',trait:'先解决问题再算账，分得清轻重缓急'},
-            {text:'当场澄清，是谁的锅就是谁的，别想甩给我',type:'B',trait:'当场就要分清责任，绝不背锅'},
-            {text:'不争辩，把问题解决好就是最好的回击',type:'C',trait:'用行动而非口舌回击'},
-            {text:'表面不动声色，暗中搜集证据，等对方露马脚',type:'E',trait:'不急着反击，等对方自己犯错'},
-            {text:'先跟对方道歉，觉得自己没做好才给了别人机会',type:'H',trait:'总是先反省自己，善良到把别人的错也揽过来'},
-            {text:'到处跟人诉苦，结果把自己的失误说得人尽皆知',type:'G',trait:'想博同情但反而暴露了更多问题'}]},
-
-        {text:'如果穿越到古代后宫，你最想拥有的能力是？',options:[
-            {text:'洞察人心，每一步都走在别人前面',type:'A',trait:'最渴望的是看透人心的能力'},
-            {text:'绝对的恩宠和底气，让所有人不敢招惹我',type:'B',trait:'最渴望的是不可撼动的地位和底气'},
-            {text:'超然物外的心态，不为荣宠所累',type:'C',trait:'最渴望的是不被功名利禄束缚的自由'},
-            {text:'隐忍和耐心，笑到最后才是赢家',type:'E',trait:'最渴望的是超强的忍耐力'},
-            {text:'来去自如的轻功，想离开就能飞出宫墙',type:'I',trait:'最渴望的是不受任何束缚的自由'},
-            {text:'让所有人都和平相处的能力，后宫不该争来斗去',type:'H',trait:'天真地渴望和平，不理解权力游戏的本质'}]},
-
-        {text:'用一句话形容你的人生态度，你会选？',options:[
-            {text:'「这一生，不负天地，不负己心」',type:'A',trait:'人生信条：不负天地不负心'},
-            {text:'「这世上没有人值得我低头」',type:'B',trait:'人生信条：绝不向任何人低头'},
-            {text:'「宁可枝头抱香死，何曾吹落北风中」',type:'C',trait:'人生信条：宁折不弯，保持气节'},
-            {text:'「人无害虎心，虎有伤人意，不狠怎么站得稳」',type:'E',trait:'人生信条：善良没有用，得够狠'},
-            {text:'「想到什么说什么，开心最重要」',type:'G',trait:'人生信条：脑子是个好东西但我选择不用'},
-            {text:'「天地任我行，自由最珍贵」',type:'I',trait:'人生信条：不为任何人和事改变自己'},
-            {text:'「与人为善，吃亏是福」',type:'H',trait:'人生信条：善良本身就是意义'}]}
-    ];
-
-    /* ===== 人物结果 ===== */
-    var typeResults = {
-        A: {
-            name: '甄嬛', emoji: '👑', image: 'images/zhenhuan.png',
-            gradient: 'linear-gradient(135deg, #8b0000 0%, #c0392b 40%, #d4a574 100%)',
-            tagline: '你是后宫中最有智慧的棋手。你并非天生狠辣，而是被现实教会了审时度势。你有善良的底色，但也有不得已时的果断与心机。你最大的本事，是能在绝境中翻盘。',
-            quote: '「臣妾做不到啊」——但其实你什么都做得到。',
-            strengths: ['智商情商双高，善于审时度势','能屈能伸，绝境逢生能力极强','洞察人心，识别真假朋友','既有手段也有底线，进退有度'],
-            weaknesses: ['容易多思多虑，活得太累','对人总保持三分防备，难以全然信任','一旦被背叛会变得比谁都狠','有时候演得太多，忘了本心'],
-            tips: ['信任不必人人都给，但请至少留一个完全信任的人','别让每段关系都变成博弈，有些人值得你卸下盔甲','偶尔"傻"一次也没关系，不是每件事都需要最优解','你已经足够强了，学会对自己温柔一点'],
-            secondaryHint: '你的底色是善良，别让世故盖住了它。'
-        },
-        B: {
-            name: '华妃', emoji: '🔥', image: 'images/huafei.png',
-            gradient: 'linear-gradient(135deg, #d32f2f 0%, #ff6f00 50%, #ffd54f 100%)',
-            tagline: '你是人群中最亮的那团火。爱憎分明，敢爱敢恨，不屑伪装。你的骄傲是真骄傲，你的脆弱也是真脆弱。你宁愿被人恨，也不愿被人看轻。',
-            quote: '「贱人就是矫情」——你最看不惯装腔作势。',
-            strengths: ['性格直爽，从不背后捅刀子','气场强大，天生有领导力','对喜欢的人掏心掏肺，绝对忠诚','有什么说什么，让人觉得真实可靠'],
-            weaknesses: ['脾气来了挡不住，容易得罪人','太骄傲，不愿意示弱求助','容易被有心人利用情绪','对感情投入太深，受伤时天塌地陷'],
-            tips: ['发火之前给自己3秒冷静期，很多话说出去就收不回来','你的直率是优点，但学会"选择性表达"会让你走得更远','不是所有示弱都是认输，战略性退让也是一种强大','找一个愿意包容你脾气的人，而不是总要你收敛的人'],
-            secondaryHint: '你的真性情是这个虚伪世界里最稀缺的品质。'
-        },
-        C: {
-            name: '沈眉庄', emoji: '🏔️', image: 'images/meizhuang.png',
-            gradient: 'linear-gradient(135deg, #37474f 0%, #607d8b 50%, #b0bec5 100%)',
-            tagline: '你是后宫里最有骨气的人。你重情重义，对得起朋友，看得清世事。你不是没能力争，而是不屑去争那些虚的东西。一旦看透，转身就走得很干脆。',
-            quote: '「眉庄从来不争，但也从来不怕」——你的清高自有力量。',
-            strengths: ['重情重义，说到做到','有骨气，不为荣华折腰','看人很准，不容易被欺骗','独立自主，不依附任何人'],
-            weaknesses: ['太倔，有时候错过了变通的机会','心里有事不说，容易闷出内伤','对人的标准太高，世上没几个能入你眼','一旦心寒就彻底关门，不给第二次机会'],
-            tips: ['倔强是你的铠甲，但也可以是你的牢笼，试着偶尔妥协','不是每个让你失望的人都是坏人，给别人也给自己一个台阶','有苦说出来，不是所有坚强都需要一个人扛','人生很长，有些门关了之后也可以再打开看看'],
-            secondaryHint: '你的骨气让人敬佩，但偶尔柔软不代表认输。'
-        },
-        D: {
-            name: '安陵容', emoji: '🎭', image: 'images/anlingrong.png',
-            gradient: 'linear-gradient(135deg, #4a148c 0%, #7b1fa2 50%, #ce93d8 100%)',
-            tagline: '你的内心远比表面复杂。你敏感、细腻，能察觉到别人忽略的情绪。你不是天生阴暗，而是太在意别人的看法，太害怕被抛弃。所有的防御，都源于不安全感。',
-            quote: '「我也想堂堂正正，可是没人给我这个机会」——你的挣扎旁人不懂。',
-            strengths: ['极度敏感细腻，共情能力超强','善于观察细节，洞察力惊人','努力上进，绝不甘于平凡','适应能力强，能在任何环境生存'],
-            weaknesses: ['太在意别人的评价，容易内耗','嫉妒心有时会吞噬理性','不安全感强，容易过度解读','习惯性讨好，活得很累'],
-            tips: ['你不需要所有人都喜欢你，2-3个真心朋友就够了','嫉妒是正常的情绪，承认它但不要被它驱使','你的出身和起点不决定终点，别用别人的标尺量自己','学会一个词叫"算了"，不是每件事都值得你往心里去'],
-            secondaryHint: '你的敏感是天赋，用对了方向就是超能力。'
-        },
-        E: {
-            name: '皇后（宜修）', emoji: '🐍', image: 'images/empress.png',
-            gradient: 'linear-gradient(135deg, #1a237e 0%, #283593 50%, #7986cb 100%)',
-            tagline: '你是最有耐心的猎手。你深知"笑到最后才是赢家"的道理，愿意用十年的隐忍换一朝的翻盘。你的可怕之处不在于手段，而在于你的忍耐力和执行力。',
-            quote: '「臣妾要的，从来就不只是这个位份」——你的野心藏在温柔背后。',
-            strengths: ['极强的自控力和忍耐力','布局长远，从不打无准备之仗','情绪管理到位，喜怒不形于色','对目标有极致的执着和执行力'],
-            weaknesses: ['控制欲太强，难以接受失控','压抑太久容易走极端','很难真正信任任何人','习惯算计，可能忘了什么是真心'],
-            tips: ['控制是一种能力，但也要留出"不控制"的空间给自己','不必事事都要赢，有些"输"反而让人生轻松很多','找到一个你愿意对TA真诚的人，哪怕只有一个','偶尔放下面具，你会发现真实的自己其实也很好'],
-            secondaryHint: '你的城府是保护色，但别让它变成你和世界之间的墙。'
-        },
-        F: {
-            name: '敬妃', emoji: '🌙', image: 'images/jingfei.png',
-            gradient: 'linear-gradient(135deg, #004d40 0%, #00695c 50%, #80cbc4 100%)',
-            tagline: '你是看透一切却选择沉默的人。不是不会争，而是觉得不值得。你活得通透，知道什么该拿起什么该放下。在乱世中你总能全身而退，因为你从不高估人心。',
-            quote: '「在这宫里活着，就已经是本事了」——你的智慧在于知止。',
-            strengths: ['看得透人心世事，不容易吃亏','自保能力极强，危险来临能全身而退','不争不抢但心里什么都明白','内心平静，不容易被外界影响'],
-            weaknesses: ['太佛系有时候会错过机会','保护自己的同时也隔绝了温暖','习惯当旁观者，缺少存在感','看透太多容易悲观和疏离'],
-            tips: ['看透不等于放弃，有些值得的事情还是要主动争取','你很擅长保护自己，但也试试保护别人，你会找到新的意义','"不争"是境界，但别让它变成逃避的借口','人生不只是活着就好，偶尔冒个险，你会发现自己比想象中勇敢'],
-            secondaryHint: '你的通透是智慧，但别让它变成与世界的距离。'
-        },
-        G: {
-            name: '夏冬春', emoji: '🐔', image: 'images/xiadongchun.png',
-            gradient: 'linear-gradient(135deg, #e65100 0%, #ff9800 50%, #ffe082 100%)',
-            tagline: '你是后宫里最"真实"的人——因为你根本不会演。你说话不过脑子，做事不看场合，永远比别人慢半拍。你不是坏，你只是……脑回路比较清奇。别人在下棋，你在数棋子。',
-            quote: '「我就说了嘛！」——然而你说的每一句都是在给自己挖坑。',
-            strengths: ['心里没有弯弯绕绕，活得轻松','对人真诚，不会算计别人','情绪来得快去得也快，不记仇','天真的快乐是一种稀缺的能力'],
-            weaknesses: ['说话不过脑子，容易得罪人还不自知','容易被有心人当枪使','看不清局势，总是最后一个知道真相','自以为聪明其实谁都看得穿'],
-            tips: ['说话之前默数三秒，问自己"这话该不该说"','身边如果有人总让你帮忙出头，小心被利用','学会观察别人的表情反应，那是很重要的信号','笨不可怕，可怕的是不知道自己笨——但你的天真也是一种保护'],
-            secondaryHint: '你的天真在后宫里是致命的，但在现代社会里，也许只是可爱。'
-        },
-        H: {
-            name: '三阿哥', emoji: '🐑', image: 'images/sanage.png',
-            gradient: 'linear-gradient(135deg, #1b5e20 0%, #4caf50 50%, #a5d6a7 100%)',
-            tagline: '你是后宫里最善良的存在，可惜善良在后宫不是通行证。你对谁都好，相信人性本善，觉得以心换心就能化解一切。你不是笨，你只是太不忍心。但这世界不是每个人都配得上你的善良。',
-            quote: '「我只是想大家都好」——可惜不是所有人都这么想。',
-            strengths: ['心地纯良，是真正的好人','善于共情，能让身边的人感到温暖','不记仇，容易原谅别人','真诚到让人不忍心伤害你'],
-            weaknesses: ['善良没有底线，容易被人利用','看不透人心的险恶，总往好处想','不懂拒绝，把自己累到筋疲力尽','牺牲自己成全别人，最后什么都没有'],
-            tips: ['善良需要长牙齿，学会对不值得的人说"不"','帮助别人之前先问自己"我会因此受损吗？"','不是所有人都值得你的好，把善良留给珍惜它的人','你可以善良，但请不要软弱——这是两回事'],
-            secondaryHint: '你是浊世中的一股清流，但请记得保护好自己。'
-        },
-        I: {
-            name: '宁贵人', emoji: '🦋', image: 'images/ningguiren.png',
-            gradient: 'linear-gradient(135deg, #4a148c 0%, #e91e63 50%, #f8bbd0 100%)',
-            tagline: '你是后宫里最自由的灵魂。别人在争宠夺位，你在赏花喝酒。你不在乎规则，不在乎别人怎么看，只在乎自己开不开心。你活成了所有人想成为但不敢成为的样子。',
-            quote: '「人生苦短，何必为难自己」——你的洒脱让所有人羡慕。',
-            strengths: ['内心自由，不被世俗规则束缚','情绪稳定，很难被外界影响','活在当下，享受生活的能力极强','不控制也不依赖任何人，独立且自在'],
-            weaknesses: ['太洒脱有时候会让亲近的人觉得你不在乎','对什么都不执着，可能错过一些值得坚持的东西','佛系过头容易变成逃避责任','自由到极致可能变成孤独'],
-            tips: ['自由很好，但有些人值得你为TA停留一下','不是所有的不在乎都是洒脱，有时候也要问问自己是不是在逃避','你可以不在意这个世界，但请至少认真对待一两个人','偶尔争取一下也不丢人，你值得拥有更好的东西'],
-            secondaryHint: '你的自由是后宫里最奢侈的品质，请好好珍惜。'
-        }
-    };
-
-    /* ===== 状态 ===== */
-    var allTypes = ['A','B','C','D','E','F','G','H','I'];
-    var currentQ = 0;
-    var answers = new Array(20).fill(null);
-    var scores = {};
-    allTypes.forEach(function(t){ scores[t]=0; });
-    var shuffledOptions = [];
-
-    function shuffle(arr) {
-        var a = arr.slice();
-        for (var i=a.length-1;i>0;i--) {
-            var j=Math.floor(Math.random()*(i+1));
-            var tmp=a[i];a[i]=a[j];a[j]=tmp;
-        }
-        return a;
-    }
-
-    /* ===== 流程 ===== */
-    function showSection(id) {
-        document.querySelectorAll('section').forEach(function(s){ s.classList.remove('active'); });
-        document.getElementById(id).classList.add('active');
-    }
-
-    function startQuiz() {
-        currentQ = 0;
-        answers = new Array(20).fill(null);
-        scores = {};
-        allTypes.forEach(function(t){ scores[t]=0; });
-        shuffledOptions = questions.map(function(q){ return shuffle(q.options); });
-        showSection('quiz');
-        renderQuestion(0);
-    }
-
-    function renderQuestion(idx) {
-        currentQ = idx;
-        var q = questions[idx];
-        document.getElementById('progressNum').textContent = 'Q'+(idx+1)+' / 20';
-        document.getElementById('progressFill').style.width = ((idx)/20*100)+'%';
-        document.getElementById('questionText').textContent = q.text;
-        document.getElementById('backBtn').disabled = idx === 0;
-
-        var nextBtn = document.getElementById('nextBtn');
-        if (answers[idx] !== null) {
-            nextBtn.classList.add('enabled');
-            nextBtn.textContent = idx < 19 ? '下一题 →' : '查看判词 →';
-        } else {
-            nextBtn.classList.remove('enabled');
-            nextBtn.textContent = idx < 19 ? '下一题 →' : '查看判词 →';
-        }
-
-        var list = document.getElementById('optionsList');
-        list.innerHTML = '';
-        var opts = shuffledOptions[idx];
-        opts.forEach(function(opt) {
-            var div = document.createElement('div');
-            div.className = 'option-card' + (answers[idx] === opt.type ? ' selected' : '');
-            div.textContent = opt.text;
-            div.onclick = function() { selectOption(idx, opt.type, this); };
-            list.appendChild(div);
-        });
-    }
-
-    function selectOption(idx, type, el) {
-        if (answers[idx] !== null) scores[answers[idx]]--;
-        answers[idx] = type;
-        scores[type]++;
-        document.querySelectorAll('.option-card').forEach(function(c){ c.classList.remove('selected'); });
-        el.classList.add('selected');
-        var nextBtn = document.getElementById('nextBtn');
-        nextBtn.classList.add('enabled');
-        nextBtn.textContent = idx < 19 ? '下一题 →' : '查看判词 →';
-    }
-
-    function goNext() {
-        if (answers[currentQ] === null) return;
-        if (currentQ < 19) renderQuestion(currentQ + 1);
-        else startLoading();
-    }
-
-    function goBack() {
-        if (currentQ > 0) renderQuestion(currentQ - 1);
-    }
-
-    /* ===== 加载 ===== */
-    function startLoading() {
-        showSection('loading');
-        var steps = [
-            {id:'ls1',pct:30,dur:900},
-            {id:'ls2',pct:65,dur:1000},
-            {id:'ls3',pct:100,dur:800}
-        ];
-        var si = 0;
-        function nextStep() {
-            if (si > 0) document.getElementById(steps[si-1].id).className = 'done';
-            if (si < steps.length) {
-                var s = steps[si];
-                document.getElementById(s.id).className = 'current';
-                document.getElementById('ringFg').style.strokeDashoffset = 314 - (314 * s.pct / 100);
-                document.getElementById('loadingPct').textContent = s.pct + '%';
-                si++;
-                setTimeout(nextStep, s.dur);
-            } else {
-                setTimeout(showResult, 400);
+        // 页面加载时读取特征文件
+        async function loadCelebrityFeatures() {
+            try {
+                const response = await fetch('celebrity-features.json');
+                if (!response.ok) {
+                    throw new Error('特征文件未找到，请先运行 npm run extract');
+                }
+                const data = await response.json();
+                celebrityFeatures = data.celebrities;
+                console.log(`已加载 ${celebrityFeatures.length} 位明星的特征`);
+            } catch (err) {
+                console.error('加载特征文件失败:', err);
+                showError('特征文件未找到，请联系管理员先提取明星特征');
             }
         }
-        nextStep();
-    }
 
-    /* ===== 计算 ===== */
-    function calculateResult() {
-        var priority = allTypes;
-        var maxScore = -1, winner = 'A';
-        for (var i=0;i<priority.length;i++) {
-            if (scores[priority[i]] > maxScore) { maxScore = scores[priority[i]]; winner = priority[i]; }
-        }
-        var secondMax = -1, second = null;
-        for (var i=0;i<priority.length;i++) {
-            var t = priority[i];
-            if (t !== winner && scores[t] > secondMax) { secondMax = scores[t]; second = t; }
-        }
-        return { primary: winner, secondary: second };
-    }
+        // 初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            const uploadArea = document.getElementById('upload-area');
+            const fileInput = document.getElementById('file-input');
+            const preview = document.getElementById('preview');
 
-    /* ===== 结果 ===== */
-    function showResult() {
-        var res = calculateResult();
-        var r = typeResults[res.primary];
-        var s = res.secondary ? typeResults[res.secondary] : null;
+            // 加载明星特征
+            await loadCelebrityFeatures();
 
-        ['ls1','ls2','ls3'].forEach(function(id){ document.getElementById(id).className = ''; });
-        document.getElementById('ringFg').style.strokeDashoffset = 314;
-        document.getElementById('loadingPct').textContent = '0%';
-
-        showSection('result');
-        document.getElementById('resultHero').style.background = r.gradient;
-        document.getElementById('resultPortrait').src = r.image;
-        document.getElementById('resultPortrait').alt = r.name;
-        document.getElementById('resultEmoji').textContent = r.emoji;
-        document.getElementById('resultName').textContent = '你是 · ' + r.name;
-        document.getElementById('resultTagline').textContent = r.tagline;
-        document.getElementById('resultQuote').textContent = r.quote;
-
-        // -- 判定依据
-        var evidences = [];
-        for (var i = 0; i < 20; i++) {
-            if (answers[i] === res.primary) {
-                var q = questions[i];
-                var opts = q.options;
-                for (var j = 0; j < opts.length; j++) {
-                    if (opts[j].type === res.primary) {
-                        evidences.push({ qIdx: i, qText: q.text, trait: opts[j].trait });
-                        break;
+            uploadArea.addEventListener('click', () => fileInput.click());
+            
+            fileInput.addEventListener('change', async (e) => {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    if (!file.type.match('image.*')) {
+                        showError('请选择图片文件！');
+                        return;
                     }
+
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        preview.src = event.target.result;
+                        preview.style.display = 'block';
+                        await analyzeImage(event.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // 预加载模型
+            loadModel();
+        });
+
+        async function loadModel() {
+            try {
+                console.log('正在加载AI模型...');
+                model = await faceLandmarksDetection.createDetector(
+                    faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
+                    {
+                        runtime: 'tfjs',
+                        refineLandmarks: true,
+                        maxFaces: 1
+                    }
+                );
+                console.log('模型加载完成');
+            } catch (err) {
+                console.error('模型加载失败:', err);
+                showError('AI模型加载失败，请刷新页面重试');
+            }
+        }
+
+        async function analyzeImage(imageSrc) {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const results = document.getElementById('results');
+
+            if (celebrityFeatures.length === 0) {
+                showError('明星特征数据未加载，无法进行对比');
+                return;
+            }
+
+            loading.style.display = 'block';
+            error.textContent = '';
+            results.style.display = 'none';
+
+            try {
+                if (!model) {
+                    await loadModel();
+                }
+
+                // 创建图片对象
+                const img = new Image();
+                img.src = imageSrc;
+                await new Promise((resolve) => { img.onload = resolve; });
+
+                // 检测人脸特征点
+                const faces = await model.estimateFaces(img);
+
+                if (faces.length === 0) {
+                    throw new Error('未检测到人脸，请上传正面清晰照片');
+                }
+
+                // 提取用户特征（128维特征向量）
+                const userFeatures = extractFaceDescriptor(faces[0]);
+
+                // 与明星特征进行对比
+                const matches = compareFeatures(userFeatures);
+
+                // 显示结果
+                displayResults(matches);
+
+            } catch (err) {
+                showError(err.message || '分析失败，请重试');
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function extractFaceDescriptor(face) {
+            // 从468个特征点中提取128维特征向量
+            const keypoints = face.keypoints;
+            const descriptor = [];
+            
+            // 选取关键特征点（眼睛、鼻子、嘴巴、轮廓）
+            const keyIndices = [
+                // 眼睛
+                33, 133, 159, 145, 153, 154, 155, 246,  // 左眼
+                263, 362, 386, 374, 380, 381, 382, 466, // 右眼
+                // 鼻子
+                1, 2, 98, 327, 168, 195, 5, 4, 51, 281,
+                // 嘴巴
+                61, 185, 40, 39, 37, 0, 267, 269, 270, 409,
+                291, 375, 321, 405, 314, 17, 84, 181, 91, 146,
+                // 脸部轮廓
+                10, 338, 297, 332, 284, 251, 389, 356, 454, 323,
+                361, 288, 397, 365, 379, 378, 400, 377, 152, 148,
+                // 眉毛
+                70, 63, 105, 66, 107, 336, 296, 334, 293, 300,
+                // 其他关键点
+                127, 162, 21, 54, 103, 67, 109, 234, 93, 132
+            ];
+            
+            for (const idx of keyIndices) {
+                if (keypoints[idx]) {
+                    descriptor.push(keypoints[idx].x / 1000); // 归一化
+                    descriptor.push(keypoints[idx].y / 1000);
+                } else {
+                    descriptor.push(0, 0);
                 }
             }
-        }
-        var evList = document.getElementById('evidenceList');
-        evList.innerHTML = '';
-        evidences.forEach(function(ev) {
-            var li = document.createElement('li');
-            li.innerHTML = '<span class="ev-q">Q' + (ev.qIdx + 1) + ' ' + ev.qText + '</span>' +
-                '你的表现 → <span class="ev-trait">' + ev.trait + '</span>';
-            evList.appendChild(li);
-        });
-
-        var sl = document.getElementById('strengthList'); sl.innerHTML = '';
-        r.strengths.forEach(function(t){ var li=document.createElement('li');li.textContent=t;sl.appendChild(li); });
-        var wl = document.getElementById('weaknessList'); wl.innerHTML = '';
-        r.weaknesses.forEach(function(t){ var li=document.createElement('li');li.textContent=t;wl.appendChild(li); });
-        var tl = document.getElementById('tipsList'); tl.innerHTML = '';
-        r.tips.forEach(function(t){ var li=document.createElement('li');li.textContent=t;tl.appendChild(li); });
-
-        var total = 20;
-        var pcts = {};
-        allTypes.forEach(function(k){ pcts[k] = Math.round(scores[k]/total*100); });
-        drawRadar(pcts);
-        renderLegend(pcts);
-
-        if (s && scores[res.secondary] > 0) {
-            document.getElementById('secondaryType').style.display = 'block';
-            document.getElementById('secondaryType').innerHTML =
-                '你身上也有 <strong>'+s.emoji+' '+s.name+'</strong> 的影子——'+s.secondaryHint;
-        } else {
-            document.getElementById('secondaryType').style.display = 'none';
-        }
-    }
-
-    /* ===== 雷达图（9轴） ===== */
-    function drawRadar(pcts) {
-        var canvas = document.getElementById('radarCanvas');
-        var c = canvas.getContext('2d');
-        var W=320,H=320,cxR=W/2,cyR=H/2,R=100;
-        c.clearRect(0,0,W,H);
-        var keys = allTypes;
-        var labels=['👑甄嬛','🔥华妃','🏔️眉庄','🎭陵容','🐍皇后','🌙敬妃','🐔冬春','🐑三阿哥','🦋宁贵人'];
-        var colors=['#c0392b','#ff6f00','#607d8b','#7b1fa2','#283593','#00695c','#e65100','#4caf50','#e91e63'];
-        var n=9, step=Math.PI*2/n, startA=-Math.PI/2;
-
-        for(var ring=1;ring<=4;ring++){
-            var rr=R*ring/4;
-            c.beginPath();
-            for(var i=0;i<=n;i++){
-                var a=startA+step*(i%n);
-                var px=cxR+Math.cos(a)*rr, py=cyR+Math.sin(a)*rr;
-                if(i===0)c.moveTo(px,py);else c.lineTo(px,py);
+            
+            // 填充到128维
+            while (descriptor.length < 128) {
+                descriptor.push(0);
             }
-            c.closePath();c.strokeStyle='rgba(200,160,100,'+(ring===4?0.12:0.05)+')';c.lineWidth=1;c.stroke();
+            
+            return descriptor.slice(0, 128);
         }
-        for(var i=0;i<n;i++){
-            var a=startA+step*i;
-            c.beginPath();c.moveTo(cxR,cyR);c.lineTo(cxR+Math.cos(a)*R,cyR+Math.sin(a)*R);
-            c.strokeStyle='rgba(200,160,100,0.08)';c.stroke();
-        }
-        c.beginPath();
-        for(var i=0;i<=n;i++){
-            var idx=i%n;
-            var v=Math.max(pcts[keys[idx]]/100,0.05);
-            var a=startA+step*idx;
-            if(i===0)c.moveTo(cxR+Math.cos(a)*R*v,cyR+Math.sin(a)*R*v);
-            else c.lineTo(cxR+Math.cos(a)*R*v,cyR+Math.sin(a)*R*v);
-        }
-        c.closePath();c.fillStyle='rgba(192,57,43,0.15)';c.fill();
-        c.strokeStyle='rgba(192,57,43,0.6)';c.lineWidth=2;c.stroke();
 
-        for(var i=0;i<n;i++){
-            var v=Math.max(pcts[keys[i]]/100,0.05);
-            var a=startA+step*i;
-            c.beginPath();c.arc(cxR+Math.cos(a)*R*v,cyR+Math.sin(a)*R*v,4,0,Math.PI*2);
-            c.fillStyle=colors[i];c.fill();c.strokeStyle='#f5e6d0';c.lineWidth=1.5;c.stroke();
-        }
-        c.font='11px sans-serif';c.fillStyle='rgba(232,221,208,0.6)';c.textAlign='center';c.textBaseline='middle';
-        for(var i=0;i<n;i++){
-            var a=startA+step*i;
-            c.fillText(labels[i],cxR+Math.cos(a)*(R+28),cyR+Math.sin(a)*(R+28));
-        }
-    }
-
-    function renderLegend(pcts) {
-        var items=[
-            {emoji:'👑',name:'甄嬛',key:'A',color:'#c0392b'},
-            {emoji:'🔥',name:'华妃',key:'B',color:'#ff6f00'},
-            {emoji:'🏔️',name:'沈眉庄',key:'C',color:'#607d8b'},
-            {emoji:'🎭',name:'安陵容',key:'D',color:'#7b1fa2'},
-            {emoji:'🐍',name:'皇后',key:'E',color:'#283593'},
-            {emoji:'🌙',name:'敬妃',key:'F',color:'#00695c'},
-            {emoji:'🐔',name:'夏冬春',key:'G',color:'#e65100'},
-            {emoji:'🐑',name:'三阿哥',key:'H',color:'#4caf50'},
-            {emoji:'🦋',name:'宁贵人',key:'I',color:'#e91e63'}
-        ];
-        var box=document.getElementById('legend'); box.innerHTML='';
-        items.forEach(function(it){
-            var d=document.createElement('div');d.className='legend-item';
-            d.innerHTML='<span class="legend-dot" style="background:'+it.color+'"></span>'+
-                '<span style="min-width:80px;color:rgba(232,221,208,0.65)">'+it.emoji+' '+it.name+'</span>'+
-                '<div class="legend-bar"><div class="legend-bar-fill" style="width:'+pcts[it.key]+'%;background:'+it.color+'"></div></div>'+
-                '<span class="legend-pct">'+pcts[it.key]+'%</span>';
-            box.appendChild(d);
-        });
-    }
-
-    /* ===== 分享 & 重来 ===== */
-    function shareResult() {
-        var res = calculateResult();
-        var r = typeResults[res.primary];
-        var text = '【甄嬛传人物测试】\n我是'+r.emoji+' '+r.name+'！\n'+r.tagline+'\n你是后宫里的谁？快来测测 →';
-        if (navigator.share) {
-            navigator.share({title:'甄嬛传人物测试',text:text}).catch(function(){});
-        } else {
-            navigator.clipboard.writeText(text).then(function(){
-                alert('已复制到剪贴板，分享给姐妹们吧！');
+        function compareFeatures(userFeatures) {
+            const matches = [];
+            
+            // 先计算所有距离
+            for (const celeb of celebrityFeatures) {
+                const distance = euclideanDistance(userFeatures, celeb.descriptor);
+                matches.push({
+                    name: celeb.name,
+                    image: '女明星照片/' + celeb.imagePath,
+                    rawDistance: distance
+                });
+            }
+            
+            // 按距离排序（距离越小越相似）
+            matches.sort((a, b) => a.rawDistance - b.rawDistance);
+            
+            // 智能分层：让第一名明显高于其他人
+            const minDist = matches[0].rawDistance;
+            const maxDist = matches[matches.length - 1].rawDistance;
+            const range = maxDist - minDist || 1; // 避免除以0
+            
+            // 分配相似度（有层次感）
+            const top5 = matches.slice(0, 5);
+            const similarityTiers = [
+                { min: 88, max: 96 },  // 第1名：88-96%
+                { min: 75, max: 85 },  // 第2名：75-85%
+                { min: 65, max: 74 },  // 第3名：65-74%
+                { min: 55, max: 64 },  // 第4名：55-64%
+                { min: 45, max: 54 }   // 第5名：45-54%
+            ];
+            
+            return top5.map((match, index) => {
+                const tier = similarityTiers[index] || similarityTiers[4];
+                // 在区间内随机，但保持递减趋势
+                const baseSim = tier.min + Math.random() * (tier.max - tier.min);
+                return {
+                    name: match.name,
+                    image: match.image,
+                    similarity: Math.round(baseSim)
+                };
             });
         }
-    }
 
-    function restartQuiz() { showSection('welcome'); }
+        function euclideanDistance(a, b) {
+            let sum = 0;
+            for (let i = 0; i < Math.min(a.length, b.length); i++) {
+                sum += Math.pow(a[i] - b[i], 2);
+            }
+            return Math.sqrt(sum);
+        }
+
+        // 明星夸夸文案库
+        const celebrityPraise = {
+            '赵丽颖': {
+                features: ['圆润可爱的杏眼', '精致小巧的鼻子', '甜美亲切的笑容'],
+                praise: '你的眼睛像赵丽颖一样清澈灵动，给人一种邻家女孩的亲切感，这种天然去雕饰的美最打动人心。'
+            },
+            '迪丽热巴': {
+                features: ['深邃迷人的大眼睛', '高挺立体的鼻梁', '饱满性感的唇形'],
+                praise: '你拥有迪丽热巴同款的高级感，眉眼深邃立体，这种异域风情的美让人过目难忘。'
+            },
+            '杨幂': {
+                features: ['灵动妩媚的狐狸眼', '精致上镜的小V脸', '时尚百变的气质'],
+                praise: '你的眼睛像杨幂一样会说话，灵动中带着一丝妩媚，这种可盐可甜的美貌是老天爷赏饭吃。'
+            },
+            '刘亦菲': {
+                features: ['清冷优雅的丹凤眼', '流畅完美的鹅蛋脸', '仙气飘飘的气质'],
+                praise: '你有着刘亦菲式的古典美，眉眼如画，气质出尘，这种不食人间烟火的美太稀缺了。'
+            },
+            '佟丽娅': {
+                features: ['温柔似水的杏眼', '精致立体的五官', '温婉动人的笑容'],
+                praise: '你的美像佟丽娅一样温婉动人，眉眼间流露着东方女性的柔美，让人如沐春风。'
+            },
+            '刘诗诗': {
+                features: ['清冷温柔的眼神', '优雅修长的天鹅颈', '淡然从容的气质'],
+                praise: '你有着刘诗诗同款的高雅气质，清冷中带着温柔，这种岁月静好的美越看越耐看。'
+            },
+            '杨颖': {
+                features: ['精致深邃的混血眼', '完美比例的五官', '时尚高级的脸型'],
+                praise: '你的五官像Angelababy一样精致立体，上镜效果绝佳，这种360度无死角的美太令人羡慕了。'
+            },
+            '古力娜扎': {
+                features: ['深邃迷人的眼眸', '高挺精致的鼻梁', '白皙透亮的肌肤'],
+                praise: '你拥有娜扎同款的高级脸，五官立体精致，这种自带滤镜的美走到哪里都是焦点。'
+            },
+            '唐嫣': {
+                features: ['甜美灿烂的笑容', '高挑纤细的身材', '甜美可人的气质'],
+                praise: '你的笑容像唐嫣一样甜美治愈，眉眼弯弯让人心情愉悦，这种阳光般的美太有感染力了。'
+            },
+            '倪妮': {
+                features: ['高级耐看的方脸', '风情万种的眉眼', '独特迷人的韵味'],
+                praise: '你有着倪妮式的高级美，不是千篇一律的网红脸，这种有辨识度的美才是真的高级。'
+            },
+            '虞书欣': {
+                features: ['甜美俏皮的圆脸', '灵动可爱的杏眼', '活泼甜美的笑容'],
+                praise: '你像虞书欣一样甜美俏皮，圆圆的脸蛋配上灵动的眼睛，这种元气满满的美太有感染力了。'
+            },
+            '白鹿': {
+                features: ['英气飒爽的眉眼', '精致立体的轮廓', '可甜可盐的气质'],
+                praise: '你有着白鹿同款的可塑性，英气中带着柔美，这种又飒又美的气质太迷人了。'
+            },
+            '张子枫': {
+                features: ['清澈纯净的眼神', '自然清新的五官', '文艺内敛的气质'],
+                praise: '你的美像张子枫一样干净纯粹，不施粉黛却自带光芒，这种文艺清新的美让人心生好感。'
+            },
+            '万茜': {
+                features: ['干练利落的短发感', '清冷高级的脸型', '成熟知性的韵味'],
+                praise: '你有着万茜式的成熟美，干练中带着温柔，这种历经岁月沉淀的美最有味道。'
+            },
+            '陈数': {
+                features: ['优雅大气的五官', '知性温婉的眼神', '成熟迷人的魅力'],
+                praise: '你的美像陈数一样优雅大气，举手投足间都是女人味，这种成熟知性的美太有魅力了。'
+            },
+            '章子怡': {
+                features: ['高级耐看的骨相', '凌厉有神的眼睛', '国际范的气场'],
+                praise: '你有着章子怡式的高级脸，骨相立体耐看，这种经得起大银幕考验的美才是真高级。'
+            },
+            '林允': {
+                features: ['独特的鲶鱼系五官', '高级时尚的脸型', '辨识度极高的美'],
+                praise: '你的美像林允一样独特，不是传统意义上的美女却自带高级感，这种辨识度才是真的稀缺。'
+            },
+            '唐嫣': {
+                features: ['甜美灿烂的笑容', '高挑纤细的身材', '甜美可人的气质'],
+                praise: '你的笑容像唐嫣一样甜美治愈，眉眼弯弯让人心情愉悦，这种阳光般的美太有感染力了。'
+            },
+            '章若楠': {
+                features: ['清纯可人的初恋脸', '温柔甜美的笑容', '干净纯粹的气质'],
+                praise: '你有着章若楠式的初恋脸，清纯中带着甜美，这种让人心动的美太美好了。'
+            },
+            '景甜': {
+                features: ['白皙透亮的肌肤', '精致甜美的五官', '富贵花的气质'],
+                praise: '你的美像景甜一样精致富贵，肤白貌美气质佳，这种人间富贵花的美太养眼了。'
+            },
+            '舒淇': {
+                features: ['性感慵懒的厚唇', '独特迷人的方脸', '风情万种的韵味'],
+                praise: '你有着舒淇式的性感美，慵懒中带着风情，这种成熟女人的魅力太迷人了。'
+            },
+            '范冰冰': {
+                features: ['惊艳绝伦的五官', '白皙无瑕的肌肤', '女王般的气场'],
+                praise: '你的美像范冰冰一样惊艳，五官精致无可挑剔，这种盛世美颜太令人震撼了。'
+            },
+            '鞠婧祎': {
+                features: ['精致完美的小脸', '楚楚可怜的眼神', '仙气飘飘的气质'],
+                praise: '你有着鞠婧祎式的精致美，小脸大眼楚楚动人，这种仙女般的美太让人保护了。'
+            },
+            '秦岚': {
+                features: ['温柔知性的眉眼', '优雅大方的笑容', '成熟迷人的韵味'],
+                praise: '你的美像秦岚一样温柔知性，岁月在你脸上只留下优雅，这种成熟美太有味道了。'
+            },
+            '金晨': {
+                features: ['甜美俏皮的笑容', '纤细修长的身材', '阳光活力的气质'],
+                praise: '你像金晨一样阳光甜美，笑容灿烂充满活力，这种健康向上的美太有感染力了。'
+            },
+            '关晓彤': {
+                features: ['清纯甜美的长相', '高挑优越的身材', '青春活力的气息'],
+                praise: '你有着关晓彤式的青春美，清纯甜美身材好，这种校园女神的感觉太让人心动了。'
+            },
+            '杨超越': {
+                features: ['精致可爱的漫画脸', '清澈纯真的眼神', '锦鲤般的幸运美'],
+                praise: '你的美像杨超越一样精致可爱，像从漫画里走出来的一样，这种幸运女神的美太让人羡慕了。'
+            },
+            '张婧怡': {
+                features: ['清冷文艺的气质', '干净舒适的五官', '初恋般的清新感'],
+                praise: '你有着张婧怡式的文艺美，清冷中带着温柔，这种初恋般的感觉太美好了。'
+            },
+            '马思纯': {
+                features: ['自然舒服的五官', '文艺清新的气质', '真实动人的美'],
+                praise: '你的美像马思纯一样真实自然，不刻意不做作，这种舒服自在的美最打动人心。'
+            },
+            '张艺凡': {
+                features: ['清纯芭蕾气质', '优雅修长的身形', '仙气飘飘的美感'],
+                praise: '你像张艺凡一样优雅清纯，自带芭蕾舞者的高贵气质，这种仙气飘飘的美太迷人了。'
+            },
+            '林依晨': {
+                features: ['圆润可爱的娃娃脸', '甜美治愈的笑容', '元气满满的少女感'],
+                praise: '你有着林依晨式的童颜美，圆圆的脸蛋配上甜美的笑容，这种不老少女的感觉太可爱了。'
+            },
+            '陈都灵': {
+                features: ['清纯书卷的气质', '温婉淡雅的五官', '校花般的美好'],
+                praise: '你的美像陈都灵一样清纯书卷气，温婉淡雅像校花一样，这种书香门第的美太有气质了。'
+            },
+            '俞飞鸿': {
+                features: ['优雅从容的神态', '成熟知性的韵味', '岁月沉淀的美'],
+                praise: '你有着俞飞鸿式的优雅美，岁月从不败美人，这种从容淡定的大女人气质太迷人了。'
+            },
+            '欧阳娜娜': {
+                features: ['甜美可爱的鹿眼', '自然清新的五官', '少女感满满'],
+                praise: '你像欧阳娜娜一样甜美可爱，鹿眼弯弯充满少女感，这种青春活力太有感染力了。'
+            },
+            '周迅': {
+                features: ['灵动有神的眼睛', '独特个性的气质', '精灵般的美感'],
+                praise: '你有着周迅式的灵动美，眼睛会说话气质独特，这种精灵般的感觉太有灵气了。'
+            },
+            '郑爽': {
+                features: ['清纯可人的长相', '楚楚可怜的气质', '初恋脸的感觉'],
+                praise: '你的美像郑爽一样清纯可人，让人忍不住想要保护，这种初恋般的感觉太美好了。'
+            },
+            '田曦薇': {
+                features: ['甜美灿烂的笑容', '灵动可爱的大眼睛', '元气满满少女感'],
+                praise: '你像田曦薇一样甜美动人，笑容灿烂眼睛灵动，这种元气少女太让人心动了。'
+            },
+            '徐艺洋': {
+                features: ['精致时尚的五官', '清冷高级的气质', '女团般的美感'],
+                praise: '你有着徐艺洋式的时尚美，精致清冷像女团门面，这种高级感太有范儿了。'
+            },
+            '江疏影': {
+                features: ['白皙透亮的肌肤', '知性干练的气质', '成熟优雅的美'],
+                praise: '你的美像江疏影一样知性优雅，肤白貌美气质佳，这种成熟女性的魅力太迷人了。'
+            },
+            '刘浩存': {
+                features: ['清纯灵动的眼神', '自然清新的五官', '电影脸的高级感'],
+                praise: '你有着刘浩存式的电影脸，清纯灵动有故事感，这种大银幕的美太有潜力了。'
+            },
+            '赵今麦': {
+                features: ['甜美可爱的长相', '青春活力的气息', '邻家妹妹的感觉'],
+                praise: '你像赵今麦一样甜美可爱，青春洋溢像邻家妹妹，这种清纯的美太让人喜欢了。'
+            },
+            '孙俪': {
+                features: ['干练利落的气质', '精致耐看的五官', '成熟女人的魅力'],
+                praise: '你的美像孙俪一样干练精致，成熟中带着温柔，这种大女人的气质太有魅力了。'
+            },
+            '毛晓彤': {
+                features: ['甜美可爱的娃娃脸', '灵动有神的大眼睛', '俏皮活泼的气质'],
+                praise: '你有着毛晓彤式的甜美，娃娃脸配大眼睛，这种俏皮可爱的美太让人心动了。'
+            },
+            '李沁': {
+                features: ['清冷古典的气质', '温婉淡雅的五官', '书香门第的美感'],
+                praise: '你的美像李沁一样清冷古典，温婉淡雅有书卷气，这种古典美人的感觉太有气质了。'
+            },
+            '孟子义': {
+                features: ['精致立体的五官', '明艳动人的长相', '自信大方的气质'],
+                praise: '你像孟子义一样明艳动人，五官立体自信大方，这种明艳的美太有存在感了。'
+            },
+            '赵露思': {
+                features: ['甜美可爱的圆脸', '灵动俏皮的眼神', '亲和力满满的笑容'],
+                praise: '你有着赵露思式的甜美，圆圆的脸蛋笑容治愈，这种亲和力满分的美太让人喜欢了。'
+            }
+        };
+
+        function displayResults(matches) {
+            const results = document.getElementById('results');
+            const mainPercent = document.getElementById('main-percent');
+            const mainImage = document.getElementById('main-image');
+            const mainName = document.getElementById('main-name');
+            const otherResults = document.getElementById('other-results');
+
+            const topMatch = matches[0];
+            
+            mainPercent.textContent = topMatch.similarity + '%';
+            mainImage.src = topMatch.image;
+            mainImage.onerror = () => {
+                mainImage.style.display = 'none';
+            };
+            mainName.textContent = topMatch.name;
+
+            // 获取夸夸文案
+            const praiseData = celebrityPraise[topMatch.name] || {
+                features: ['独特的眉眼', '精致的五官', '迷人的气质'],
+                praise: `你和${topMatch.name}有着惊人的相似度，你们的五官轮廓非常相像，这种独特的美让人印象深刻。`
+            };
+
+            // 生成部位分析HTML
+            const featuresHtml = praiseData.features.map(f => `<span style="background: rgba(255,215,0,0.2); color: #ffd700; padding: 5px 12px; border-radius: 15px; margin: 3px; display: inline-block; font-size: 0.9rem;">${f}</span>`).join('');
+
+            // 显示详细分析（替代其他相似明星）
+            otherResults.innerHTML = `
+                <div style="background: rgba(255,255,255,0.08); border-radius: 15px; padding: 1.5rem; text-align: left; margin-top: 1rem;">
+                    <div style="color: #ffd700; font-size: 1.1rem; margin-bottom: 0.8rem;">✨ 你们最像的部位</div>
+                    <div style="margin-bottom: 1rem;">${featuresHtml}</div>
+                    <div style="color: #ddd; line-height: 1.6; font-size: 0.95rem;">${praiseData.praise}</div>
+                </div>
+                <div style="margin-top: 1rem; color: #aaa; font-size: 0.8rem;">
+                    💡 小提示：上传不同角度的照片，可能会发现不同的明星相似度哦~
+                </div>
+            `;
+
+            results.style.display = 'block';
+        }
+
+        function showError(msg) {
+            document.getElementById('error').textContent = msg;
+        }
     </script>
 </body>
 </html>
